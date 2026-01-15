@@ -75,4 +75,32 @@ export class PatientService {
             patient_id: String(patientId),
         };
     }
+
+    async getAppointments(patientId: number, requesterId: number): Promise<any[]> {
+
+        const patient = await this.repository.findById(patientId);
+        if (!patient) {
+            throw new Error('NotFound');
+        }
+
+        if (patient.id !== requesterId) {
+            throw new Error('Unauthorized');
+        }
+
+        return this.repository.getAppointments(patientId);
+    }
+
+    async getMedicalRecords(patientId: number, requesterId: number): Promise<any[]> {
+
+        const patient = await this.repository.findById(patientId);
+        if (!patient) {
+            throw new Error('NotFound');
+        }
+
+        if (patient.id !== requesterId) {
+            throw new Error('Unauthorized');
+        }
+
+        return this.repository.getMedicalRecords(patientId);
+    }
 }

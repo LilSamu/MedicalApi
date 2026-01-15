@@ -70,5 +70,36 @@ export class PatientRepository {
         return this.findById(id);
     }
 
-    
+    async getAppointments(patientId: number): Promise<any[]> {
+        const result = await this.databaseService.execQuery({
+            sql: `SELECT id as appointment_id, doctor_id, start_time, end_time, status 
+                  FROM appointments WHERE patient_id = ? ORDER BY start_time`,
+            params: [patientId],
+        });
+        return result.rows;
+    }
+
+    async getMedicalRecords(patientId: number): Promise<any[]> {
+        const result = await this.databaseService.execQuery({
+            sql: `SELECT id as record_id, doctor_id, diagnosis, prescriptions, notes 
+                  FROM medical_records WHERE patient_id = ?`,
+            params: [patientId],
+        });
+
+        for (const record of result.rows) {
+            const testResults = await this.databaseService.execQuery({
+                sql: 'SELECT type, result FROM test_results WHERE record_id = ?',
+                params: [record.record_id],
+            });
+            record.test_results = testResults.rows;
+
+            const treatments = await this.databaseService.execQuery({
+                sql: 'SELECT description, start_date, end_date FROM treatments WHERE record_id = ?',
+                params: [record.record_id],
+            });
+            record.treatments = treatments.rows;
+        }
+
+        return result.rows;
+    }
 }

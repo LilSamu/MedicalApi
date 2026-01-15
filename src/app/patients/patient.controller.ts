@@ -12,6 +12,8 @@ export class PatientController {
 
         this.router.post('/', this.register.bind(this));
         this.router.put('/:id/profile', authMiddleware, patientMiddleware, this.updateProfile.bind(this));
+        this.router.get('/:id/appointments', authMiddleware, patientMiddleware, this.getAppointments.bind(this));
+        this.router.get('/:id/records', authMiddleware, patientMiddleware, this.getMedicalRecords.bind(this));
     }
 
     getRouter(): Router {
@@ -52,4 +54,37 @@ export class PatientController {
         }
     }
 
+    async getAppointments(req: AuthRequest, res: Response): Promise<void> {
+        try {
+            const patientId = parseInt(req.params.id as string);
+            const requesterId = req.userId!;
+            const appointments = await this.service.getAppointments(patientId, requesterId);
+            res.status(200).json(appointments);
+        } catch (error: any) {
+            if (error.message === 'Unauthorized') {
+                res.status(401).json({ message: 'Not this patient / not allowed' });
+            } else if (error.message === 'NotFound') {
+                res.status(404).json({ message: 'Patient not found' });
+            } else {
+                res.sendStatus(500);
+            }
+        }
+    }
+
+    async getMedicalRecords(req: AuthRequest, res: Response): Promise<void> {
+        try {
+            const patientId = parseInt(req.params.id as string);
+            const requesterId = req.userId!;
+            const records = await this.service.getMedicalRecords(patientId, requesterId);
+            res.status(200).json(records);
+        } catch (error: any) {
+            if (error.message === 'Unauthorized') {
+                res.status(401).json({ message: 'Not this patient / not allowed' });
+            } else if (error.message === 'NotFound') {
+                res.status(404).json({ message: 'Patient not found' });
+            } else {
+                res.sendStatus(500);
+            }
+        }
+    }
 }
