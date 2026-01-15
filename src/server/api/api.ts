@@ -1,13 +1,18 @@
 import { Router } from 'express';
 import { Service } from 'typedi';
+import { AuthController } from '../../app/auth/auth.controller';
 
 @Service()
 export class Api {
     private apiRouter: Router;
 
-    constructor() {
+    constructor(
+        private authController: AuthController,
+    ) {
         this.apiRouter = Router();
-        // Aqui los controladores, tipo esto this.apiRouter.use('/patients', this.patientController.getRouter());
+
+        
+        this.apiRouter.use('/auth', this.authController.getRouter());
     }
 
     getApiRouter(): Router {
