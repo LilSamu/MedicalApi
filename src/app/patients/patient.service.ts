@@ -54,4 +54,25 @@ export class PatientService {
         };
     }
 
+    async updateProfile(patientId: number, requesterId: number, data: UpdateProfileData): Promise<{ message: string; patient_id: string }> {
+
+        const patient = await this.repository.findById(patientId);
+        if (!patient) {
+            throw new Error('NotFound');
+        }
+        if (patient.id !== requesterId) {
+            throw new Error('Unauthorized');
+        }
+
+        if (!data.name && !data.phone && !data.address) {
+            throw new Error('InvalidInput');
+        }
+
+        await this.repository.update(patientId, data);
+
+        return {
+            message: 'Profile updated',
+            patient_id: String(patientId),
+        };
+    }
 }
