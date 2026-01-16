@@ -52,165 +52,206 @@ export class DatabaseService {
         }
     }
 
-    public async initializeDatabase(): Promise<void> {
-        await this.openDatabase();
+public async initializeDatabase(): Promise<void> {
+  await this.openDatabase();
 
-        // Tabla de departamentos
-        await this.db!.exec(`
-      CREATE TABLE IF NOT EXISTS departments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        services TEXT
-      )
-    `);
+  // Tabla de departamentos
+  await this.db!.exec(`
+    CREATE TABLE IF NOT EXISTS departments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      services TEXT
+    )
+  `);
 
-        // Tabla de especialidades
-        await this.db!.exec(`
-      CREATE TABLE IF NOT EXISTS specialties (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL
-      )
-    `);
+  const deptCountRow = await this.db!.get<{ count: number }>(
+    'SELECT COUNT(*) as count FROM departments'
+  );
 
-        // Tabla de pacientes
-        await this.db!.exec(`
-      CREATE TABLE IF NOT EXISTS patients (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
-        password TEXT NOT NULL,
-        phone TEXT,
-        birth_date TEXT,
-        address TEXT
-      )
-    `);
+  if (!deptCountRow || deptCountRow.count === 0) {
+    await this.db!.run(
+      'INSERT INTO departments (id, name, services) VALUES (?, ?, ?)',
+      [1, 'General Medicine', 'General consultation']
+    );
+    await this.db!.run(
+      'INSERT INTO departments (id, name, services) VALUES (?, ?, ?)',
+      [2, 'Cardiology', 'Heart related services']
+    );
+  }
 
-        // Tabla de doctores
-        await this.db!.exec(`
-      CREATE TABLE IF NOT EXISTS doctors (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
-        password TEXT NOT NULL,
-        phone TEXT,
-        department_id INTEGER,
-        location TEXT,
-        qualifications TEXT,
-        FOREIGN KEY(department_id) REFERENCES departments(id) ON DELETE SET NULL
-      )
-    `);
+  // Tabla de especialidades
+  await this.db!.exec(`
+    CREATE TABLE IF NOT EXISTS specialties (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL
+    )
+  `);
 
-        // Tabla de relación doctores-especialidades
-        await this.db!.exec(`
-      CREATE TABLE IF NOT EXISTS doctor_specialties (
-        doctor_id INTEGER NOT NULL,
-        specialty_id INTEGER NOT NULL,
-        PRIMARY KEY(doctor_id, specialty_id),
-        FOREIGN KEY(doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
-        FOREIGN KEY(specialty_id) REFERENCES specialties(id) ON DELETE CASCADE
-      )
-    `);
+  const specCountRow = await this.db!.get<{ count: number }>(
+    'SELECT COUNT(*) as count FROM specialties'
+  );
 
-        // Tabla de slots de disponibilidad
-        await this.db!.exec(`
-      CREATE TABLE IF NOT EXISTS availability_slots (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        doctor_id INTEGER NOT NULL,
-        start_time TEXT NOT NULL,
-        end_time TEXT NOT NULL,
-        location TEXT,
-        FOREIGN KEY(doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
-      )
-    `);
+  if (!specCountRow || specCountRow.count === 0) {
+    await this.db!.run(
+      'INSERT INTO specialties (id, name) VALUES (?, ?)',
+      [1, 'General Practice']
+    );
+    await this.db!.run(
+      'INSERT INTO specialties (id, name) VALUES (?, ?)',
+      [2, 'Cardiology']
+    );
+  }
 
-        // Tabla de citas
-        await this.db!.exec(`
-      CREATE TABLE IF NOT EXISTS appointments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        patient_id INTEGER NOT NULL,
-        doctor_id INTEGER NOT NULL,
-        start_time TEXT NOT NULL,
-        end_time TEXT NOT NULL,
-        reason TEXT,
-        status TEXT DEFAULT 'scheduled',
-        cancellation_reason TEXT,
-        FOREIGN KEY(patient_id) REFERENCES patients(id) ON DELETE CASCADE,
-        FOREIGN KEY(doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
-      )
-    `);
+  // Tabla de pacientes
+  await this.db!.exec(`
+    CREATE TABLE IF NOT EXISTS patients (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      phone TEXT,
+      birth_date TEXT,
+      address TEXT
+    )
+  `);
 
-        // Tabla de historiales médicos
-        await this.db!.exec(`
-      CREATE TABLE IF NOT EXISTS medical_records (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        patient_id INTEGER NOT NULL,
-        doctor_id INTEGER NOT NULL,
-        diagnosis TEXT,
-        prescriptions TEXT,
-        notes TEXT,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY(patient_id) REFERENCES patients(id) ON DELETE CASCADE,
-        FOREIGN KEY(doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
-      )
-    `);
+  // Tabla de doctores
+  await this.db!.exec(`
+    CREATE TABLE IF NOT EXISTS doctors (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      phone TEXT,
+      department_id INTEGER,
+      location TEXT,
+      qualifications TEXT,
+      FOREIGN KEY(department_id) REFERENCES departments(id) ON DELETE SET NULL
+    )
+  `);
 
-        // Tabla de resultados de tests
-        await this.db!.exec(`
-      CREATE TABLE IF NOT EXISTS test_results (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        record_id INTEGER NOT NULL,
-        type TEXT NOT NULL,
-        result TEXT,
-        FOREIGN KEY(record_id) REFERENCES medical_records(id) ON DELETE CASCADE
-      )
-    `);
+  // Tabla de relación doctores-especialidades
+  await this.db!.exec(`
+    CREATE TABLE IF NOT EXISTS doctor_specialties (
+      doctor_id INTEGER NOT NULL,
+      specialty_id INTEGER NOT NULL,
+      PRIMARY KEY(doctor_id, specialty_id),
+      FOREIGN KEY(doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
+      FOREIGN KEY(specialty_id) REFERENCES specialties(id) ON DELETE CASCADE
+    )
+  `);
 
-        // Tabla de tratamientos
-        await this.db!.exec(`
-      CREATE TABLE IF NOT EXISTS treatments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        record_id INTEGER NOT NULL,
-        description TEXT,
-        start_date TEXT,
-        end_date TEXT,
-        FOREIGN KEY(record_id) REFERENCES medical_records(id) ON DELETE CASCADE
-      )
-    `);
+  // Tabla de slots de disponibilidad
+  await this.db!.exec(`
+    CREATE TABLE IF NOT EXISTS availability_slots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      doctor_id INTEGER NOT NULL,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL,
+      location TEXT,
+      FOREIGN KEY(doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
+    )
+  `);
 
-        // Tabla de notificaciones
-        await this.db!.exec(`
-      CREATE TABLE IF NOT EXISTS notifications (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        type TEXT NOT NULL,
-        message TEXT NOT NULL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+  // Tabla de citas
+  await this.db!.exec(`
+    CREATE TABLE IF NOT EXISTS appointments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      patient_id INTEGER NOT NULL,
+      doctor_id INTEGER NOT NULL,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL,
+      reason TEXT,
+      status TEXT DEFAULT 'scheduled',
+      cancellation_reason TEXT,
+      FOREIGN KEY(patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+      FOREIGN KEY(doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
+    )
+  `);
 
-        // Tabla de logs de auditoría
-        await this.db!.exec(`
-      CREATE TABLE IF NOT EXISTS audit_logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id TEXT,
-        action TEXT NOT NULL,
-        resource_type TEXT,
-        resource_id TEXT,
-        timestamp TEXT NOT NULL
-      )
-    `);
+  // Tabla de historiales médicos
+  await this.db!.exec(`
+    CREATE TABLE IF NOT EXISTS medical_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      patient_id INTEGER NOT NULL,
+      doctor_id INTEGER NOT NULL,
+      diagnosis TEXT,
+      prescriptions TEXT,
+      notes TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+      FOREIGN KEY(doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
+    )
+  `);
 
-        // Tabla de admins
-        await this.db!.exec(`
-      CREATE TABLE IF NOT EXISTS admins (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL UNIQUE,
-        password TEXT NOT NULL
-      )
-    `);
+  // Tabla de resultados de tests
+  await this.db!.exec(`
+    CREATE TABLE IF NOT EXISTS test_results (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      record_id INTEGER NOT NULL,
+      type TEXT NOT NULL,
+      result TEXT,
+      FOREIGN KEY(record_id) REFERENCES medical_records(id) ON DELETE CASCADE
+    )
+  `);
 
-        if (config.dbOptions.database !== ':memory:') {
-            await this.closeDatabase();
-        }
-    }
+  // Tabla de tratamientos
+  await this.db!.exec(`
+    CREATE TABLE IF NOT EXISTS treatments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      record_id INTEGER NOT NULL,
+      description TEXT,
+      start_date TEXT,
+      end_date TEXT,
+      FOREIGN KEY(record_id) REFERENCES medical_records(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Tabla de notificaciones
+  await this.db!.exec(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      type TEXT NOT NULL,
+      message TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Tabla de logs de auditoría
+  await this.db!.exec(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT,
+      action TEXT NOT NULL,
+      resource_type TEXT,
+      resource_id TEXT,
+      timestamp TEXT NOT NULL
+    )
+  `);
+
+  // Tabla de admins
+  await this.db!.exec(`
+    CREATE TABLE IF NOT EXISTS admins (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL
+    )
+  `);
+
+  const adminCountRow = await this.db!.get<{ count: number }>(
+    'SELECT COUNT(*) as count FROM admins'
+  );
+
+  if (!adminCountRow || adminCountRow.count === 0) {
+    await this.db!.run(
+      'INSERT INTO admins (username, password) VALUES (?, ?)',
+      ['admin', 'admin123']
+    );
+  }
+
+  if (config.dbOptions.database !== ':memory:') {
+    await this.closeDatabase();
+  }
+}
 }
