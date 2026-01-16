@@ -1,6 +1,6 @@
 import { Service } from 'typedi';
 import { DatabaseService } from '../../database/database.service';
-import { Doctor } from './doctor.model';
+import { Doctor, AvailabilitySlot } from './doctor.model';
 
 @Service()
 export class DoctorRepository {
@@ -95,6 +95,37 @@ export class DoctorRepository {
         return result.rows.map((r: any) => r.name);
     }
 
+    async createAvailabilitySlot(slot: AvailabilitySlot): Promise<AvailabilitySlot> {
+        await this.databaseService.execQuery({
+            sql: 'INSERT INTO availability_slots (doctor_id, start_time, end_time, location) VALUES (?, ?, ?, ?)',
+            params: [slot.doctor_id, slot.start_time, slot.end_time, slot.location],
+        });
+        const result = await this.databaseService.execQuery({
+            sql: 'SELECT * FROM availability_slots WHERE doctor_id = ? ORDER BY id DESC LIMIT 1',
+            params: [slot.doctor_id],
+        });
+        return result.rows[0] as AvailabilitySlot;
+    }
+
+    async hasOverlappingSlot(doctorId: number, startTime: string, endTime: string): Promise<boolean> {
+        const result = await this.databaseService.execQuery({
+            sql: `SELECT * FROM availability_slots 
+                  WHERE doctor_id = ? 
+                  AND ((start_time <= ? AND end_time > ?) OR (start_time < ? AND end_time >= ?) OR (start_time >= ? AND end_time <= ?))`,
+            params: [doctorId, startTime, startTime, endTime, endTime, startTime, endTime],
+        });
+        return result.rows.length > 0;
+    }
+
+    async getAppointments(doctorId: number): Promise<any[]> {
+        const result = await this.databaseService.execQuery({
+            sql: `SELECT id as appointment_id, patient_id, start_time, end_time, status 
+                  FROM appointments WHERE doctor_id = ? ORDER BY start_time`,
+            params: [doctorId],
+        });
+        return result.rows;
+    }
+
     async searchDoctors(filters: { specialty_id?: string; date?: string; location?: string }): Promise<any[]> {
         let sql = `SELECT DISTINCT d.id as doctor_id, d.name, d.location FROM doctors d`;
         const params: any[] = [];
@@ -130,5 +161,13 @@ export class DoctorRepository {
         }
 
         return result.rows;
+    }
+
+    async specialtyExists(specialtyId: number): Promise<boolean> {
+        const result = await this.databaseService.execQuery({
+            sql: 'SELECT id FROM specialties WHERE id = ?',
+            params: [specialtyId],
+        });
+        return result.rows.length > 0;
     }
 }
