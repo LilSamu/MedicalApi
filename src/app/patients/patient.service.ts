@@ -1,6 +1,7 @@
 import { Service } from 'typedi';
 import { PatientRepository } from './patient.repository';
 import { Patient } from './patient.model';
+import { AuditLogRepository } from '../audit-logs/audit-log.repository';
 
 interface RegisterData {
     name: string;
@@ -19,7 +20,10 @@ interface UpdateProfileData {
 
 @Service()
 export class PatientService {
-    constructor(private readonly repository: PatientRepository) { }
+    constructor(
+        private readonly repository: PatientRepository,
+        private readonly auditLogRepository: AuditLogRepository,
+    ) { }
 
     async register(data: RegisterData): Promise<{ message: string; patient_id: string }> {
         const { name, email, password, phone, birth_date, address } = data;
@@ -48,6 +52,14 @@ export class PatientService {
 
         const created = await this.repository.create(newPatient);
 
+        await this.auditLogRepository.create({
+            user_id: String(created.id),
+            action: 'REGISTER',
+            resource_type: 'patient',
+            resource_id: String(created.id),
+            timestamp: new Date().toISOString(),
+        });
+
         return {
             message: 'Patient registered',
             patient_id: String(created.id),
@@ -69,6 +81,14 @@ export class PatientService {
         }
 
         await this.repository.update(patientId, data);
+
+        await this.auditLogRepository.create({
+            user_id: String(requesterId),
+            action: 'UPDATE_PROFILE',
+            resource_type: 'patient',
+            resource_id: String(patientId),
+            timestamp: new Date().toISOString(),
+        });
 
         return {
             message: 'Profile updated',
