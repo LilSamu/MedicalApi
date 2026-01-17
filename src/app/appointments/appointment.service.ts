@@ -1,5 +1,7 @@
 import { Service } from 'typedi';
 import { AppointmentRepository } from './appointment.repository';
+import { NotificationRepository } from '../notifications/notification.repository';
+import { AuditLogRepository } from '../audit-logs/audit-log.repository';
 
 interface BookData {
     patient_id: string;
@@ -16,7 +18,11 @@ interface RescheduleData {
 
 @Service()
 export class AppointmentService {
-    constructor(private readonly repository: AppointmentRepository) { }
+    constructor(
+        private readonly repository: AppointmentRepository,
+        private readonly notificationRepository: NotificationRepository,
+        private readonly auditLogRepository: AuditLogRepository,
+    ) { }
 
     async book(data: BookData, requesterId: number, requesterRole: string): Promise<{ message: string; appointment_id: string }> {
         const { patient_id, doctor_id, start_time, end_time } = data;
@@ -57,6 +63,26 @@ export class AppointmentService {
             status: 'scheduled',
         });
 
+        await this.notificationRepository.create({
+            user_id: patientId,
+            type: 'appointment_confirmation',
+            message: `Appointment booked for ${start_time}`,
+        });
+
+        await this.notificationRepository.create({
+            user_id: doctorId,
+            type: 'appointment_confirmation',
+            message: `New appointment scheduled for ${start_time}`,
+        });
+
+        await this.auditLogRepository.create({
+            user_id: String(requesterId),
+            action: 'CREATE',
+            resource_type: 'appointment',
+            resource_id: String(created.id),
+            timestamp: new Date().toISOString(),
+        });
+
         return {
             message: 'Appointment booked',
             appointment_id: String(created.id),
@@ -80,6 +106,26 @@ export class AppointmentService {
         }
 
         await this.repository.cancel(appointmentId, reason);
+
+        await this.notificationRepository.create({
+            user_id: appointment.patient_id,
+            type: 'appointment_cancellation',
+            message: `Appointment cancelled: ${reason || 'No reason provided'}`,
+        });
+
+        await this.notificationRepository.create({
+            user_id: appointment.doctor_id,
+            type: 'appointment_cancellation',
+            message: `Appointment cancelled: ${reason || 'No reason provided'}`,
+        });
+
+        await this.auditLogRepository.create({
+            user_id: String(requesterId),
+            action: 'CANCEL',
+            resource_type: 'appointment',
+            resource_id: String(appointmentId),
+            timestamp: new Date().toISOString(),
+        });
 
         return {
             message: 'Appointment cancelled',
@@ -114,9 +160,30 @@ export class AppointmentService {
 
         await this.repository.reschedule(appointmentId, new_start_time, new_end_time);
 
+        await this.notificationRepository.create({
+            user_id: appointment.patient_id,
+            type: 'appointment_update',
+            message: `Appointment rescheduled to ${new_start_time}`,
+        });
+
+        await this.notificationRepository.create({
+            user_id: appointment.doctor_id,
+            type: 'appointment_update',
+            message: `Appointment rescheduled to ${new_start_time}`,
+        });
+
+        await this.auditLogRepository.create({
+            user_id: String(requesterId),
+            action: 'RESCHEDULE',
+            resource_type: 'appointment',
+            resource_id: String(appointmentId),
+            timestamp: new Date().toISOString(),
+        });
+
         return {
             message: 'Appointment rescheduled',
             appointment_id: String(appointmentId),
         };
     }
 }
+
