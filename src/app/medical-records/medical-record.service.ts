@@ -12,6 +12,14 @@ interface CreateRecordData {
     treatments?: Treatment[];
 }
 
+interface UpdateRecordData {
+    diagnosis?: string;
+    prescriptions?: string;
+    notes?: string;
+    test_results?: TestResult[];
+    treatments?: Treatment[];
+}
+
 @Service()
 export class MedicalRecordService {
     constructor(private readonly repository: MedicalRecordRepository) { }
@@ -55,6 +63,32 @@ export class MedicalRecordService {
         return {
             message: 'Record created',
             record_id: String(created.id),
+        };
+    }
+
+    async update(recordId: number, data: UpdateRecordData, requesterId: number, requesterRole: string): Promise<{ message: string; record_id: string }> {
+        if (requesterRole !== 'doctor') {
+            throw new Error('Unauthorized');
+        }
+
+        const record = await this.repository.findById(recordId);
+        if (!record) {
+            throw new Error('NotFound');
+        }
+
+        if (record.doctor_id !== requesterId) {
+            throw new Error('Forbidden');
+        }
+
+        if (!data.diagnosis && !data.prescriptions && !data.notes && !data.test_results && !data.treatments) {
+            throw new Error('InvalidInput');
+        }
+
+        await this.repository.update(recordId, data);
+
+        return {
+            message: 'Record updated',
+            record_id: String(recordId),
         };
     }
 }

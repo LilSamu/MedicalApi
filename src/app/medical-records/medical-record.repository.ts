@@ -41,6 +41,69 @@ export class MedicalRecordRepository {
         return createdRecord;
     }
 
+    async findById(id: number): Promise<MedicalRecord | null> {
+        const result = await this.databaseService.execQuery({
+            sql: 'SELECT * FROM medical_records WHERE id = ?',
+            params: [id],
+        });
+        if (result.rows.length === 0) {
+            return null;
+        }
+        return result.rows[0] as MedicalRecord;
+    }
+
+    async update(id: number, data: { diagnosis?: string; prescriptions?: string; notes?: string; test_results?: TestResult[]; treatments?: Treatment[] }): Promise<void> {
+        const fields: string[] = [];
+        const params: any[] = [];
+
+        if (data.diagnosis !== undefined) {
+            fields.push('diagnosis = ?');
+            params.push(data.diagnosis);
+        }
+        if (data.prescriptions !== undefined) {
+            fields.push('prescriptions = ?');
+            params.push(data.prescriptions);
+        }
+        if (data.notes !== undefined) {
+            fields.push('notes = ?');
+            params.push(data.notes);
+        }
+
+        if (fields.length > 0) {
+            params.push(id);
+            await this.databaseService.execQuery({
+                sql: `UPDATE medical_records SET ${fields.join(', ')} WHERE id = ?`,
+                params,
+            });
+        }
+
+        if (data.test_results) {
+            await this.databaseService.execQuery({
+                sql: 'DELETE FROM test_results WHERE record_id = ?',
+                params: [id],
+            });
+            for (const test of data.test_results) {
+                await this.databaseService.execQuery({
+                    sql: 'INSERT INTO test_results (record_id, type, result) VALUES (?, ?, ?)',
+                    params: [id, test.type, test.result],
+                });
+            }
+        }
+
+        if (data.treatments) {
+            await this.databaseService.execQuery({
+                sql: 'DELETE FROM treatments WHERE record_id = ?',
+                params: [id],
+            });
+            for (const treatment of data.treatments) {
+                await this.databaseService.execQuery({
+                    sql: 'INSERT INTO treatments (record_id, description, start_date, end_date) VALUES (?, ?, ?, ?)',
+                    params: [id, treatment.description, treatment.start_date, treatment.end_date],
+                });
+            }
+        }
+    }
+
     async patientExists(patientId: number): Promise<boolean> {
         const result = await this.databaseService.execQuery({
             sql: 'SELECT id FROM patients WHERE id = ?',
