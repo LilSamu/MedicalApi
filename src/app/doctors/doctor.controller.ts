@@ -23,7 +23,7 @@ export class DoctorController {
 
     async register(req: AuthRequest, res: Response): Promise<void> {
         try {
-            const result = await this.service.register(req.body);
+            const result = await this.service.register(req.body, req.userId!);
             res.status(201).json(result);
         } catch (error: any) {
             if (error.message === 'InvalidInput') {
@@ -33,7 +33,6 @@ export class DoctorController {
             } else if (error.message === 'EmailExists') {
                 res.status(409).json({ message: 'Email already exists' });
             } else {
-                
                 res.sendStatus(500);
             }
         }
@@ -54,7 +53,6 @@ export class DoctorController {
             } else if (error.message === 'NotFound') {
                 res.status(404).json({ message: 'Doctor does not exist' });
             } else {
-                
                 res.sendStatus(500);
             }
         }
@@ -74,7 +72,6 @@ export class DoctorController {
             } else if (error.message === 'NotFound') {
                 res.status(404).json({ message: 'Doctor does not exist' });
             } else {
-                
                 res.sendStatus(500);
             }
         }
@@ -93,7 +90,6 @@ export class DoctorController {
             } else if (error.message === 'NotFound') {
                 res.status(404).json({ message: 'Doctor does not exist' });
             } else {
-                
                 res.sendStatus(500);
             }
         }
@@ -114,7 +110,6 @@ export class DoctorController {
             } else if (error.message === 'NotFound' || error.message === 'SpecialtyNotFound') {
                 res.status(404).json({ message: 'Doctor or specialties not found' });
             } else {
-                
                 res.sendStatus(500);
             }
         }

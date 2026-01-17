@@ -1,6 +1,7 @@
 import { Service } from 'typedi';
 import { DoctorRepository } from './doctor.repository';
 import { Doctor, AvailabilitySlot } from './doctor.model';
+import { AuditLogRepository } from '../audit-logs/audit-log.repository';
 
 interface RegisterData {
     name: string;
@@ -20,9 +21,12 @@ interface UpdateProfileData {
 
 @Service()
 export class DoctorService {
-    constructor(private readonly repository: DoctorRepository) { }
+    constructor(
+        private readonly repository: DoctorRepository,
+        private readonly auditLogRepository: AuditLogRepository,
+    ) { }
 
-    async register(data: RegisterData): Promise<{ message: string; doctor_id: string }> {
+    async register(data: RegisterData, requesterId: number): Promise<{ message: string; doctor_id: string }> {
         const { name, email, password } = data;
 
         if (!name || !email || !password) {
@@ -50,6 +54,14 @@ export class DoctorService {
             await this.repository.addSpecialties(created.id!, specialtyIds);
         }
 
+        await this.auditLogRepository.create({
+            user_id: String(requesterId),
+            action: 'REGISTER_DOCTOR',
+            resource_type: 'doctor',
+            resource_id: String(created.id),
+            timestamp: new Date().toISOString(),
+        });
+
         return {
             message: 'Doctor created',
             doctor_id: String(created.id),
@@ -71,6 +83,14 @@ export class DoctorService {
         }
 
         await this.repository.update(doctorId, data);
+
+        await this.auditLogRepository.create({
+            user_id: String(requesterId),
+            action: 'UPDATE_PROFILE',
+            resource_type: 'doctor',
+            resource_id: String(doctorId),
+            timestamp: new Date().toISOString(),
+        });
 
         return {
             message: 'Profile updated',
@@ -105,6 +125,14 @@ export class DoctorService {
         };
 
         const created = await this.repository.createAvailabilitySlot(slot);
+
+        await this.auditLogRepository.create({
+            user_id: String(requesterId),
+            action: 'CREATE_AVAILABILITY',
+            resource_type: 'availability_slot',
+            resource_id: String(created.id),
+            timestamp: new Date().toISOString(),
+        });
 
         return {
             message: 'Availability slot created',
@@ -146,6 +174,14 @@ export class DoctorService {
         }
 
         await this.repository.addSpecialties(doctorId, specialtyIds.map(id => parseInt(id)));
+
+        await this.auditLogRepository.create({
+            user_id: String(requesterId),
+            action: 'UPDATE_SPECIALTIES',
+            resource_type: 'doctor',
+            resource_id: String(doctorId),
+            timestamp: new Date().toISOString(),
+        });
 
         return {
             message: 'Specialties updated',
