@@ -71,7 +71,7 @@ describe('AppointmentController Integration Test', () => {
 
         expect(res.status).toBe(201);
         expect(res.body).toHaveProperty('appointment_id');
-
+    
         expect(res.body).toHaveProperty('message', 'Appointment booked');
     });
 
@@ -89,6 +89,7 @@ describe('AppointmentController Integration Test', () => {
     });
 
     it('should cancel an appointment', async () => {
+     
         const resCreate = await request(app)
             .post('/api/appointments')
             .set('Authorization', `Bearer ${patientToken}`)
@@ -111,6 +112,7 @@ describe('AppointmentController Integration Test', () => {
     });
 
     it('should reschedule an appointment', async () => {
+     
         const resCreate = await request(app)
             .post('/api/appointments')
             .set('Authorization', `Bearer ${patientToken}`)
@@ -133,5 +135,107 @@ describe('AppointmentController Integration Test', () => {
 
         expect(resResched.status).toBe(200);
         expect(resResched.body.message).toBe('Appointment rescheduled');
+    });
+
+    it('should fail booking with invalid time range (start > end)', async () => {
+        const res = await request(app)
+            .post('/api/appointments')
+            .set('Authorization', `Bearer ${patientToken}`)
+            .send({
+                patient_id: patientId,
+                doctor_id: doctorId,
+                start_time: '10:00',
+                end_time: '09:00', 
+                reason: 'Time Travel'
+            });
+
+        expect(res.status).toBe(400);
+    });
+
+    it('should fail booking with non-existent doctor', async () => {
+        const res = await request(app)
+            .post('/api/appointments')
+            .set('Authorization', `Bearer ${patientToken}`)
+            .send({
+                patient_id: patientId,
+                doctor_id: 99999, 
+                start_time: '10:00',
+                end_time: '10:30',
+                reason: 'Ghost Doctor'
+            });
+
+        expect(res.status).toBe(404);
+    });
+
+    it('should return 404 for invalid endpoint/method on appointments', async () => {
+     
+        const res = await request(app)
+            .patch('/api/appointments')
+            .set('Authorization', `Bearer ${patientToken}`)
+            .send({});
+
+        expect(res.status).toBe(404);
+    });
+
+
+    it('should fail double booking (Conflict)', async () => {
+      
+        await request(app)
+            .post('/api/appointments')
+            .set('Authorization', `Bearer ${patientToken}`)
+            .send({
+                patient_id: patientId,
+                doctor_id: doctorId,
+                start_time: '10:00',
+                end_time: '10:30',
+                reason: 'First'
+            });
+
+        const res = await request(app)
+            .post('/api/appointments')
+            .set('Authorization', `Bearer ${patientToken}`)
+            .send({
+                patient_id: patientId,
+                doctor_id: doctorId,
+                start_time: '10:00',
+                end_time: '10:30',
+                reason: 'Overlap'
+            });
+
+        expect(res.status).toBe(409);
+        expect(res.body.message).toBe('Time slot already booked');
+    });
+
+    it('should fail rescheduling to a booked slot', async () => {
+   
+        await request(app).post('/api/appointments').set('Authorization', `Bearer ${patientToken}`)
+            .send({ patient_id: patientId, doctor_id: doctorId, start_time: '16:00', end_time: '16:30' });
+
+        const resB = await request(app).post('/api/appointments').set('Authorization', `Bearer ${patientToken}`)
+            .send({ patient_id: patientId, doctor_id: doctorId, start_time: '16:30', end_time: '17:00' });
+        const idB = resB.body.appointment_id;
+
+        const res = await request(app)
+            .patch(`/api/appointments/${idB}/reschedule`)
+            .set('Authorization', `Bearer ${patientToken}`)
+            .send({ new_start_time: '16:00', new_end_time: '16:30' });
+
+        expect(res.status).toBe(409);
+    });
+
+    it('should fail cancelling an already cancelled appointment', async () => {
+   
+        const resCreate = await request(app).post('/api/appointments').set('Authorization', `Bearer ${patientToken}`)
+            .send({ patient_id: patientId, doctor_id: doctorId, start_time: '11:00', end_time: '11:30' });
+        const id = resCreate.body.appointment_id;
+
+        await request(app).patch(`/api/appointments/${id}/cancel`).set('Authorization', `Bearer ${patientToken}`).send();
+
+        const res = await request(app)
+            .patch(`/api/appointments/${id}/cancel`)
+            .set('Authorization', `Bearer ${patientToken}`)
+            .send();
+
+        expect(res.status).toBe(400); 
     });
 });

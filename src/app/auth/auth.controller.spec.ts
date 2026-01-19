@@ -10,11 +10,13 @@ import { Api } from '../../server/api/api';
 import cors from 'cors';
 import { json, urlencoded } from 'body-parser';
 
+
 describe('AuthController Integration Test', () => {
     let app: express.Express;
     let databaseService: DatabaseService;
 
     beforeEach(async () => {
+    
         config.dbOptions.database = ':memory:';
         Container.reset();
 
@@ -32,12 +34,11 @@ describe('AuthController Integration Test', () => {
         app.use(cors());
         app.use(json({ limit: '5mb' }));
         app.use(urlencoded({ extended: false }));
-     
         app.use('/api', api.getApiRouter());
     });
 
     afterAll(async () => {
-        if (databaseService) {
+        if (databaseService) {        
         }
     });
 
@@ -52,6 +53,7 @@ describe('AuthController Integration Test', () => {
 
         expect(res.status).toBe(200);
         expect(res.body).toHaveProperty('token');
+       
     });
 
     it('should fail login with invalid credentials', async () => {
@@ -73,6 +75,51 @@ describe('AuthController Integration Test', () => {
                 email: 'nonexistent@test.com',
                 password: 'password123',
                 role: 'patient'
+            });
+
+        expect(res.status).toBe(401);
+    });
+
+    it('should fail login with invalid email format (Validation)', async () => {
+       
+        const res = await request(app)
+            .post('/api/auth/login')
+            .send({
+                email: 'not-an-email',
+                password: 'password123',
+                role: 'patient'
+            });
+        expect([400, 401]).toContain(res.status);
+    });
+
+    it('should fail login with missing fields', async () => {
+        const res = await request(app)
+            .post('/api/auth/login')
+            .send({
+                email: 'test@test.com',
+         
+                role: 'patient'
+            });
+
+        expect(res.status).toBe(400); 
+    });
+
+    it('should fail login with empty body', async () => {
+        const res = await request(app)
+            .post('/api/auth/login')
+            .send({});
+
+        expect(res.status).toBe(400);
+    });
+
+    it('should fail login if trying to login as wrong role', async () => {
+   
+        const res = await request(app)
+            .post('/api/auth/login')
+            .send({
+                email: 'test@test.com',
+                password: 'password123',
+                role: 'doctor'
             });
 
         expect(res.status).toBe(401);

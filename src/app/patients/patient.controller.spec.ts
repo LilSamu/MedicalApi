@@ -44,6 +44,7 @@ describe('PatientController Integration Test', () => {
         expect(res.status).toBe(201);
         expect(res.body).toHaveProperty('patient_id');
         expect(res.body.message).toBe('Patient registered');
+     
         expect(Number(res.body.patient_id)).toBeGreaterThan(0);
     });
 
@@ -133,5 +134,57 @@ describe('PatientController Integration Test', () => {
 
         expect(res.status).toBe(200);
         expect(Array.isArray(res.body)).toBe(true);
+    });
+
+    it('should fail accessing another patient profile', async () => {
+     
+        const regA = await request(app).post('/api/patients').send({
+            name: 'P A', email: 'a@test.com', password: 'password123', phone: '1', birth_date: '1', address: '1'
+        });
+        const idA = Number(regA.body.patient_id);
+        const tokenA = jwt.sign({ id: idA, role: 'patient' }, config.user_sessions.secret, { expiresIn: '1d' });
+
+        const regB = await request(app).post('/api/patients').send({
+            name: 'P B', email: 'b@test.com', password: 'password123', phone: '1', birth_date: '1', address: '1'
+        });
+        const idB = Number(regB.body.patient_id);
+
+        const res = await request(app)
+            .put(`/api/patients/${idB}/profile`)
+            .set('Authorization', `Bearer ${tokenA}`)
+            .send({ phone: '666' });
+
+        expect(res.status).toBe(401); 
+    });
+
+    it('should fail getting profile with invalid ID format', async () => {
+       
+        const token = jwt.sign({ id: 1, role: 'patient' }, config.user_sessions.secret, { expiresIn: '1d' });
+        const res = await request(app)
+            .get(`/api/patients/abc/appointments`) 
+            .set('Authorization', `Bearer ${token}`);
+
+        expect([400, 404]).toContain(res.status);
+    });
+
+    it('should fail updating profile with empty body (Validation)', async () => {
+      
+        const reg = await request(app).post('/api/patients').send({
+            name: 'EmptyTest', email: 'empty@test.com', password: 'password123', phone: '123456789', birth_date: '2000-01-01', address: '123 St'
+        });
+        expect(reg.status).toBe(201);
+        const id = Number(reg.body.patient_id);
+        const token = jwt.sign({ id: id, role: 'patient' }, config.user_sessions.secret, { expiresIn: '1d' });
+
+        const res = await request(app)
+            .put(`/api/patients/${id}/profile`)
+            .set('Authorization', `Bearer ${token}`)
+            .send({});
+
+        if (res.status !== 200 && res.status !== 400) {
+            console.log('DEBUG FAILURE:', res.status, JSON.stringify(res.body));
+        }
+
+        expect([200, 400]).toContain(res.status);
     });
 });

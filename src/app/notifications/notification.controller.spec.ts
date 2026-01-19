@@ -53,4 +53,30 @@ describe('NotificationController Integration Test', () => {
         expect(res.status).toBe(201);
         expect(res.body).toHaveProperty('message', 'Notification created');
     });
+
+    it('should fail sending notification with missing fields', async () => {
+        const res = await request(app)
+            .post('/api/notifications')
+            .set('Authorization', `Bearer ${userToken}`)
+            .send({
+                user_id: String(patientId),
+           
+            });
+
+        expect(res.status).toBe(400);
+    });
+
+    it('should fail sending notification to non-existent user', async () => {
+        const res = await request(app)
+            .post('/api/notifications')
+            .set('Authorization', `Bearer ${userToken}`)
+            .send({
+                user_id: '999999', 
+                type: 'info',
+                message: 'Hello Ghost'
+            });
+
+        expect(res.status).toBe(404);
+        expect(res.body).toHaveProperty('message', 'User not found');
+    });
 });

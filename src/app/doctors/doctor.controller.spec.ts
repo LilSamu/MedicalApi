@@ -19,6 +19,7 @@ describe('DoctorController Integration Test', () => {
 
         databaseService = Container.get(DatabaseService);
         await databaseService.initializeDatabase();
+
         await databaseService.execQuery({
             sql: 'INSERT INTO doctors (name, email, password, phone, location, qualifications, department_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
             params: ['Dr. House', 'house@hospital.com', 'vicodin', '555-HOUSE', 'Room 101', 'Diagnostician', 1]
@@ -42,13 +43,15 @@ describe('DoctorController Integration Test', () => {
     });
 
     it('should list doctors by specialty (department)', async () => {
-
+      
         const res = await request(app).get('/api/doctors?specialty_id=1'); 
+       
 
         expect(res.status).toBe(200);
         expect(Array.isArray(res.body)).toBe(true);
     });
     it('should register a new doctor (admin only)', async () => {
+
         const adminToken = jwt.sign({ id: 1, role: 'admin' }, config.user_sessions.secret, { expiresIn: '1d' });
 
         const res = await request(app)
@@ -95,5 +98,32 @@ describe('DoctorController Integration Test', () => {
             });
 
         expect(res.status).toBe(201);
+    });
+
+    it('should find doctor by partial location', async () => {
+        const res = await request(app).get('/api/doctors?location=Room');
+        expect(res.status).toBe(200);
+        expect(res.body.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should return empty list when no doctor matches location', async () => {
+        const res = await request(app).get('/api/doctors?location=VoidZone');
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual([]);
+    });
+
+    it('should fail updating non-existent doctor', async () => {
+        const docToken = jwt.sign({ id: 99999, role: 'doctor' }, config.user_sessions.secret, { expiresIn: '1d' });
+        const res = await request(app)
+            .put('/api/doctors/99999/profile')
+            .set('Authorization', `Bearer ${docToken}`)
+            .send({ location: 'Void' });
+
+        expect(res.status).toBe(404);
+    });
+
+    it('should fail getting non-existent doctor details', async () => {
+        const res = await request(app).get('/api/doctors/99999');
+        expect(res.status).toBe(404);
     });
 });

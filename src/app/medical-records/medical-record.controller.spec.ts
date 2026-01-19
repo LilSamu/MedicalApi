@@ -107,4 +107,40 @@ describe('MedicalRecordController Integration Test', () => {
         expect(updateRes.body).toHaveProperty('record_id');
         expect(updateRes.body.message).toBe('Record updated');
     });
+
+    it('should fail creating record with empty diagnosis', async () => {
+        const res = await request(app)
+            .post('/api/records')
+            .set('Authorization', `Bearer ${doctorToken}`)
+            .send({
+                patient_id: patientId,
+                doctor_id: doctorId,
+                diagnosis: '', 
+                prescriptions: 'Rest',
+                notes: 'Drink water'
+            });
+
+        expect(res.status).toBe(400); 
+    });
+
+    it('should fail if doctor attempts to update another doctors record', async () => {
+      
+        await databaseService.execQuery({
+            sql: 'INSERT INTO doctors (id, name, email, password, phone, location, qualifications, department_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            params: [99, 'Dr. Other', 'other@hospital.com', 'pass', '555-OTH', 'Office', 'GP', 1]
+        });
+        const otherDoctorToken = jwt.sign({ id: 99, role: 'doctor' }, config.user_sessions.secret, { expiresIn: '1d' });
+
+        const createRes = await request(app)
+            .post('/api/records')
+            .set('Authorization', `Bearer ${doctorToken}`)
+            .send({ patient_id: patientId, doctor_id: doctorId, diagnosis: 'Private', prescriptions: 'None', notes: '.' });
+        const recordId = createRes.body.record_id;
+
+        const res = await request(app)
+            .put(`/api/records/${recordId}`)
+            .set('Authorization', `Bearer ${otherDoctorToken}`)
+            .send({ diagnosis: 'Hacked' });
+        expect(res.status).toBe(403);
+    });
 });

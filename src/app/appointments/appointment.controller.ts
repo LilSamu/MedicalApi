@@ -43,7 +43,7 @@ export class AppointmentController {
             const appointmentId = parseInt(req.params.id as string);
             const requesterId = req.userId!;
             const requesterRole = req.userRole || '';
-            const result = await this.service.cancel(appointmentId, requesterId, requesterRole, req.body.reason);
+            const result = await this.service.cancel(appointmentId, requesterId, requesterRole, req.body?.reason);
             res.status(200).json(result);
         } catch (error: any) {
             if (error.message === 'CannotCancel') {
