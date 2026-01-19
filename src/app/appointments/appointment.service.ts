@@ -30,6 +30,9 @@ export class AppointmentService {
         if (!patient_id || !doctor_id || !start_time || !end_time) {
             throw new Error('InvalidInput');
         }
+        if (start_time >= end_time) {
+            throw new Error('InvalidInput');
+        }
 
         const patientId = parseInt(patient_id);
         const doctorId = parseInt(doctor_id);
