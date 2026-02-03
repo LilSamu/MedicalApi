@@ -177,13 +177,13 @@ The application uses SQLite with the following main tables:
 - **audit_logs**: Audit trail for system actions
 - **admins**: Administrative users
 
-## 🔐 Default Credentials
+## 🔐 Security
 
-The system comes with default admin credentials:
-- **Username**: `admin`
-- **Password**: `admin123`
-
-**⚠️ Important**: Change these credentials in production!
+**⚠️ Important Security Note**: 
+- The system includes default administrator credentials for initial setup
+- These default credentials **MUST** be changed immediately in production environments
+- Review the `src/database/database.service.ts` file to see how the admin account is initialized
+- Always use strong passwords and follow security best practices
 
 ## 🔧 Configuration
 
